@@ -30,7 +30,10 @@ void GuideUP();//ガイド上げる
 void GuideDown();//ガイド下げる
 
 int phaze_counter = 0;
-int time_counter = 0;
+int time_counter1 = 0;//お父さんスイッチ1用
+int time_counter2 = 0;//お父さんスイッチ2用
+int time_counter3 = 0;//お父さんスイッチ3用
+int time_counter4 = 0;//手首サーボ用
 bool btnstopper = false;
 
 int main()
@@ -39,6 +42,10 @@ int main()
   startUp.fall(callback(&phaze_admin));
   CANMessage rec_msg1(0x2,CANStandard);
   Shift_Location.disable_irq();
+  C_hand.period_ms(20);
+  C_wrist.period_ms(20);
+  Guide1.period_ms(20);
+  Guide2.period_ms(20);
 
   while(1)
   {
@@ -70,7 +77,7 @@ int main()
       default:
       printf("error!\n");
     }
-    time_counter;
+    time_counter1++;
     wait_us(100000);
   }
 
@@ -80,12 +87,12 @@ int main()
 
 void phaze_admin()
 {
-  if(time_counter>5&& !btnstopper)
+  if(time_counter1>5&& !btnstopper)
   {
     printf("phaze%d ended\n",phaze_counter);
     phaze_counter++;
     printf("phaze%d start\n",phaze_counter);
-    time_counter = 0;
+    time_counter1 = 0;
   }
   switch(phaze_counter)
   {
@@ -98,9 +105,11 @@ void phaze_admin()
     break;
     
     case 3:
+    phaze3();
     break;
     
     case 4:
+    phaze4();
     break;
 
     default:
@@ -140,30 +149,32 @@ void phaze4()
 
 void C_Hand_Grip()
 {
-
+  C_hand.pulsewidth_us(550);
 }
 
 void C_Hand_Release()
 {
-
+  C_hand.pulsewidth_us(1500);
 }
 
 void C_Wrist_CW()
 {
-
+  C_wrist.pulsewidth_us(time_counter4);
 }
 
 void C_Wrist_CCW()
 {
-
+  C_wrist.pulsewidth_us(time_counter4);
 }
 
 void GuideUP()
 {
-
+  Guide1.pulsewidth(1500);
+  Guide2.pulsewidth(1500);
 }
 
 void GuideDown()
 {
-
+  Guide1.pulsewidth(550);
+  Guide2.pulsewidth(2400);
 }
