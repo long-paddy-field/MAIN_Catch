@@ -28,19 +28,32 @@ void C_Wrist_CW();//時計回り
 void C_Wrist_CCW();//反時計回り
 void GuideUP();//ガイド上げる
 void GuideDown();//ガイド下げる
+void SetUp_Location();//開始位置を指定
 
 int phaze_counter = 0;
 int time_counter1 = 0;//お父さんスイッチ1用
 int time_counter2 = 0;//お父さんスイッチ2用
 int time_counter3 = 0;//お父さんスイッチ3用
 int time_counter4 = 0;//手首サーボ用
+int Own_Location = 0;//自分のエリアの初期位置
 bool btnstopper = false;
+
+unsigned char data1 = 0;
+unsigned char data3 = 0;
+unsigned char data5 = 0;
+unsigned char data6 = 0;
+
+CANMessage msg1(0x1,&data1);
+CANMessage msg2(0x2,CANStandard);
+CANMessage msg3(0x3,&data3);
+CANMessage msg4(0x4,CANStandard);
+CANMessage msg5(0x5,&data5);
+CANMessage msg6(0x6,&data6);
 
 int main()
 {
   printf("Program started\n");
   startUp.fall(callback(&phaze_admin));
-  CANMessage rec_msg1(0x2,CANStandard);
   Shift_Location.disable_irq();
   C_hand.period_ms(20);
   C_wrist.period_ms(20);
@@ -55,10 +68,10 @@ int main()
       break;
 
       case 1:
-      if(can.read(rec_msg1))
+      if(can.read(msg2))
       {
         printf("own task1 ended\n");
-        btnstopper = false;
+        startUp.enable_irq();
       }
       break;
 
@@ -78,6 +91,9 @@ int main()
       printf("error!\n");
     }
     time_counter1++;
+    time_counter2++;
+    time_counter3++;
+    time_counter4++;
     wait_us(100000);
   }
 
@@ -87,21 +103,22 @@ int main()
 
 void phaze_admin()
 {
-  if(time_counter1>5&& !btnstopper)
+  if(time_counter1>5)
   {
     printf("phaze%d ended\n",phaze_counter);
     phaze_counter++;
     printf("phaze%d start\n",phaze_counter);
     time_counter1 = 0;
   }
+  //一回性の動作はここでやる
   switch(phaze_counter)
   {
     case 1:
-    phaze1();
+    phaze1();//スタートを通知、ガイドを下す、位置設定
     break;
     
     case 2:
-    phaze2();
+    phaze2();//シフトボタン有効化
     break;
     
     case 3:
@@ -125,11 +142,9 @@ void phaze0()
 
 void phaze1()
 {
-    unsigned char data = 0;
-    CANMessage msg1(0x1,&data);
     can.write(msg1);
     GuideDown();
-    btnstopper=true;
+    startUp.disable_irq();
 }
 
 void phaze2()
@@ -177,4 +192,13 @@ void GuideDown()
 {
   Guide1.pulsewidth(550);
   Guide2.pulsewidth(2400);
+}
+
+void SetUp_Location()
+{
+  if(time_counter2>5)
+  {
+    Own_Location++;
+    time_counter2 = 0;
+  }
 }
