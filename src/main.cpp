@@ -52,8 +52,9 @@ int time_counter1 = 0;//お父さんスイッチ1用
 int time_counter2 = 0;//お父さんスイッチ2用
 int time_counter3 = 0;//お父さんスイッチ3用
 int time_counter4 = 0;//サーボ用
+int time_counter5 = 0;//自陣の停止/再始動用
 int Own_Location = 0;//自分のエリアの初期位置
-int Guide_Location = 0;//Guideのパルス幅を保持
+int Guide_Location = 1500;//Guideのパルス幅を保持
 int wrist_Location = 0;//手首の現在位置を保持
 bool con_flag = false;//trueで動かす　falseで止める（コンベア）
 
@@ -66,6 +67,7 @@ unsigned char data4 = 0;
 unsigned char data5 = 0;
 unsigned char data7 = 0;
 unsigned char data8 = 0;
+unsigned char data9 = 0;//0が稼働　1が停止
 //CANのメッセージ
 CANMessage msg1(0x1,&data1);//作動開始を通知
 CANMessage msg2(0x2,CANStandard);//PIのパラメタ設定の終了を通知
@@ -75,7 +77,7 @@ CANMessage msg5(0x5,&data5);//稼働開始
 CANMessage msg6(0x6,CANStandard);//電磁弁の必要性を通知
 CANMessage msg7(0x7,&data7);//コンベアの起動を通知
 CANMessage msg8(0x8,&data8);//終了を通知
-
+CANMessage msg9(0x9,&data9);//自動機の一時停止/再始動
 
 int main()
 {
@@ -179,6 +181,18 @@ int main()
           printf("pushed Y\n");
           C_Wrist_CCW();
         }
+        if(controller.buttons[4] == 1)//LB ガイド上げる
+        {
+          GuideUp();
+        }else if(controller.buttons[6] == 1)//LT ガイド下げる
+        {
+          GuideDown();
+        }
+        if(controller.buttons[5] == 1 && time_counter5 > 5)//RBが押されたら
+        {
+          time_counter5 = 0;
+          can.write(msg9);
+        }
       }
       break;
 
@@ -208,6 +222,7 @@ int main()
     time_counter2++;
     time_counter3++;
     time_counter4++;
+    time_counter5++;
     phaze_prev = phaze_counter;
     wait_us(100000);
   }
@@ -269,12 +284,14 @@ void C_Wrist_CCW()
 
 void GuideUp()
 {
-  Guide1.pulsewidth(1500 - time_counter4 * 18);
-  Guide2.pulsewidth(1500 + time_counter4 * 18);
+  Guide_Location -= 18;
+  Guide1.pulsewidth(Guide_Location);
+  Guide2.pulsewidth(3000 - Guide_Location);
 }
 
 void GuideDown()
 {
-  Guide1.pulsewidth(600 + time_counter4 * 18);
-  Guide2.pulsewidth(2400 - time_counter4 * 18);
+  Guide_Location += 18;
+  Guide1.pulsewidth(Guide_Location);
+  Guide2.pulsewidth(3000 - Guide_Location);
 }
