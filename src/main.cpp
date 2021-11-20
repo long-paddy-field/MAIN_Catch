@@ -4,6 +4,172 @@ asm(".global _printf_float");
 #include"controller.h"
 #include"DENJIBEN.h"
 
+CAN can(PA_11,PA_12,500000);//CAN通信
+Controller controller(can,0x334);
+
+InterruptIn Btn_start(PB_13);//起動スイッチ
+InterruptIn Btn_pause(PB_14);//中断スイッチ
+InterruptIn Btn_owari(PB_15);//終了スイッチ
+
+DigitalOut valve(PA_7);//電磁弁
+PwmOut Guide1(PB_10);//ガイド1
+PwmOut Guide2(PB_2);//ガイド2
+Denjiben DJ(valve);
+
+void start_protocol();
+void pause_protocol();
+void owari_protocol();
+int phaze = 0;//0:待機 1:稼働 2:終了
+int prev_phaze = 0;
+bool admin = true;//pauseが押されたらfalse
+
+void GuideUp();//ガイド上げる
+void GuideDown();//ガイド下げる
+
+int time_counter1 = 0;//お父さんスイッチ1用
+int time_counter2 = 0;//お父さんスイッチ2用
+int time_counter3 = 0;//お父さんスイッチ3用
+int time_counter4 = 0;//ガイドのサーボ用
+int prev_z = 0;//ちょっと前のz軸値を保持
+
+const int start_s1 = 0;//0度 
+const int terminal_s1 = 0;//180度
+int Guide_s1 = (start_s1 + terminal_s1)/2;//90度
+const int start_s2 = 0;//0度
+const int terminal_s2 = 0;//180度
+int Guide_s2 = (start_s2 + terminal_s2)/2;//90度
+
+unsigned char data1 = 0;
+unsigned char data3 = 0;
+unsigned char data4 = 0;
+
+CANMessage msg1(0x1,&data1);
+CANMessage msg2(0x2,CANStandard);
+CANMessage msg3(0x3,&data3);
+CANMessage msg4(0x4,&data4);
+
+int main()
+{
+  printf("program start\n");
+  Guide1.period_ms(20);
+  Guide2.period_ms(20);
+  Btn_start.rise(callback(&start_protocol));
+  Btn_pause.rise(callback(&pause_protocol));
+  Btn_owari.rise(callback(&owari_protocol));
+  
+  while(1)
+  {
+    switch(phaze){
+      case 0:
+      //待機
+      printf("now waiting\n");
+      break;
+      case 1:
+      //本稼働
+      if(prev_phaze == 0)
+      {
+        printf("now moving\n");
+        can.write(msg1);
+      }
+      if(can.read(msg2))
+      {
+        if(msg2.data[0]==0)
+        {
+          printf("grab BISCO\n");
+          DJ.open();        
+        }else if(msg2.data[0]==1)
+        {
+          printf("release BISCO\n");
+          DJ.close();
+        }
+      }
+      if(admin)
+      {
+        data3 = admin ? 1 : 0;
+        can.write(msg3);
+      }
+      if(controller.axes.z == 100)
+      {
+        if(controller.axes.z != prev_z)
+        {
+          time_counter4 = 0;
+        }
+        GuideUp();
+      }else if(controller.axes.z == -100)
+      {
+        if(controller.axes.z != prev_z)
+        {
+          time_counter4 = 0;
+        }
+        GuideDown();
+      }
+      break;
+      case 2:
+      if(prev_phaze == 1)
+      {
+        printf("end program\n");
+        can.write(msg4);
+        Guide1.pulsewidth((start_s1+terminal_s1)/2);
+        Guide2.pulsewidth((start_s2+terminal_s2)/2);
+      }
+      //終了
+      break;
+    }
+    time_counter1++;
+    time_counter2++;
+    time_counter3++;
+    time_counter4++;
+    prev_z = controller.axes.z;
+    wait_us(100000);
+  }
+  return 0;
+}
+
+void start_protocol()
+{
+  phaze = 1;
+}
+
+void pause_protocol()
+{
+  if(time_counter2 > 5)
+  {
+    admin = !admin;
+    time_counter2 = 0;
+  }
+}
+void owari_protocol()
+{
+  phaze = 2;
+}
+
+void GuideUp()
+{
+  if(Guide_s1 <= terminal_s1 && Guide_s2 >= start_s2)
+  {
+  Guide1.pulsewidth(Guide_s1);
+  Guide2.pulsewidth(Guide_s2);
+  Guide_s1 = Guide_s1 + time_counter4*30;
+  Guide_s2 = Guide_s2 - time_counter4*30;
+  }
+}
+
+void GuideDown()
+{
+  if(Guide_s1 >= start_s1 && Guide_s2 <= terminal_s2)
+  {
+  Guide1.pulsewidth(Guide_s1);
+  Guide2.pulsewidth(Guide_s2);
+  Guide_s1 = Guide_s1 - time_counter4*30; 
+  Guide_s2 = Guide_s2 + time_counter4*30;
+  }
+}
+
+/*
+#include"mbed.h"
+#include"controller.h"
+#include"DENJIBEN.h"
+
 //先に宣言
 RawCAN can(PA_11,PA_12,500000);//CAN通信
 Controller controller(can,0x334);//コントローラのコンストラクタ
@@ -16,21 +182,21 @@ PwmOut C_wrist(PB_4);//手首のサーボ
 PwmOut Guide1(PB_10);//ガイド1
 PwmOut Guide2(PB_2);//ガイド2
 Denjiben DJ(S_valve);
-/*
+
 ～phazeについて～
 phaze 0:スタートボタンが押されるまで待機
 phaze 1:PIの初期設定
 phaze 2:スタート位置を決定
 phaze 3:稼働開始
 phaze 4:終了処理
-*/
-/*
+
+
 void phaze0();//スタートボタン押されるまで待機
 void phaze1();//起動後プロトコル→待機
 void phaze2();//初期位置設定モード
 void phaze3();//稼働開始
 void phaze4();//終了処理
-*/
+
 //以下は割り込みで呼び出す奴
 void phaze_admin();//割り込みでphazecounterを上げてく
 void SetUp_Location();//割り込みで開始位置を指定
@@ -41,16 +207,11 @@ void C_Hand_Grip();//掴む
 void C_Hand_Release();//放す
 void C_Wrist_CW();//時計回り
 void C_Wrist_CCW();//反時計回り
-void GuideUp();//ガイド上げる
-void GuideDown();//ガイド下げる
 
 
 int phaze_counter = 0;//phazeを記憶
 int phaze_prev = 0;//0.1秒前のphazeを記憶
 
-int time_counter1 = 0;//お父さんスイッチ1用
-int time_counter2 = 0;//お父さんスイッチ2用
-int time_counter3 = 0;//お父さんスイッチ3用
 int time_counter4 = 0;//サーボ用
 int time_counter5 = 0;//自陣の停止/再始動用
 int Own_Location = 0;//自分のエリアの初期位置
@@ -59,9 +220,8 @@ int wrist_Location = 0;//手首の現在位置を保持
 bool con_flag = false;//trueで動かす　falseで止める（コンベア）
 
 //CAN送信用空データ
-/*
-CANMessageには、idとdataがある。
-*/
+//CANMessageには、idとdataがある。
+
 unsigned char data1 = 0;
 unsigned char data4 = 0;
 unsigned char data5 = 0;
@@ -95,7 +255,59 @@ int main()
   //はじめはMainSetting以外の割り込みを無効化
 //  Conveyor.disable_irq();
 //  Shift_Location.disable_irq();
-
+  while(1)
+  {
+    if(controller.axes.x==100)
+    {
+      printf("UP ");
+    }
+    if(controller.axes.x==-100)
+    {
+      printf("DONW ");
+    }
+    if(controller.axes.y==100)
+    {
+      printf("right ");
+    }
+    if(controller.axes.y == -100)
+    {
+      printf("left ");
+    }
+    if(controller.buttons[0]==1)
+    {
+      printf("X ");
+    }
+    if(controller.buttons[1]==1)
+    {
+      printf("A ");
+    }
+    if(controller.buttons[2]==1)
+    {
+      printf("B ");
+    }
+    if(controller.buttons[3]==1)
+    {
+      printf("Y ");
+    }
+    if(controller.buttons[4]==1)
+    {
+      printf("LB ");
+    }
+    if(controller.buttons[5]==1)
+    {
+      printf("RB ");
+    }
+    if(controller.buttons[6]==1)
+    {
+      printf("LT ");
+    }
+    if(controller.buttons[7]==1)
+    {
+      printf("RT ");
+    }
+    printf("\b\n");
+    wait_us(500000);
+  }
 //以下主要処理
   //0.1秒ごとに最適な処理を行う
   while(1)
@@ -295,3 +507,4 @@ void GuideDown()
   Guide1.pulsewidth(Guide_Location);
   Guide2.pulsewidth(3000 - Guide_Location);
 }
+*/
