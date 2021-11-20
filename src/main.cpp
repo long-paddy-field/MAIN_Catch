@@ -147,10 +147,10 @@ void GuideUp()
 {
   if(Guide_s1 <= terminal_s1 && Guide_s2 >= start_s2)
   {
-  Guide1.pulsewidth(Guide_s1);
-  Guide2.pulsewidth(Guide_s2);
   Guide_s1 = Guide_s1 + time_counter4*30;
   Guide_s2 = Guide_s2 - time_counter4*30;
+  Guide1.pulsewidth(Guide_s1);
+  Guide2.pulsewidth(Guide_s2);
   }
 }
 
@@ -158,10 +158,10 @@ void GuideDown()
 {
   if(Guide_s1 >= start_s1 && Guide_s2 <= terminal_s2)
   {
-  Guide1.pulsewidth(Guide_s1);
-  Guide2.pulsewidth(Guide_s2);
   Guide_s1 = Guide_s1 - time_counter4*30; 
   Guide_s2 = Guide_s2 + time_counter4*30;
+  Guide1.pulsewidth(Guide_s1);
+  Guide2.pulsewidth(Guide_s2);
   }
 }
 
