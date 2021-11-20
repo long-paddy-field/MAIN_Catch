@@ -5,7 +5,7 @@
 
 #include <mbed.h>
 
-Controller::Controller(CAN& _can, const uint32_t _canId) : can(_can), canId(_canId) {
+Controller::Controller(RawCAN& _can, const uint32_t _canId) : can(_can), canId(_canId) {
   can.attach(callback(this, &Controller::recieveData));
 }
 

@@ -5,7 +5,7 @@ asm(".global _printf_float");
 #include"DENJIBEN.h"
 
 //先に宣言
-CAN can(PB_8,PB_9,500000);//CAN通信
+RawCAN can(PA_11,PA_12,500000);//CAN通信
 Controller controller(can,0x334);//コントローラのコンストラクタ
 InterruptIn MainSetting(PB_13);//お父さんスイッチ1
 InterruptIn Shift_Location(PB_14);//お父さんスイッチ2
@@ -93,13 +93,14 @@ int main()
   Guide1.period_ms(20);
   Guide2.period_ms(20);
   //はじめはMainSetting以外の割り込みを無効化
-  Conveyor.disable_irq();
-  Shift_Location.disable_irq();
+//  Conveyor.disable_irq();
+//  Shift_Location.disable_irq();
 
 //以下主要処理
   //0.1秒ごとに最適な処理を行う
   while(1)
   {
+    
     switch(phaze_counter)
     {
       case 0:
@@ -113,7 +114,6 @@ int main()
       //1回だけ:開始通知・MainSettingを無効に
         printf("phaze 1 start!\n");
         can.write(msg1);
-        MainSetting.disable_irq();
         time_counter4 = 0;
       }else if(can.read(msg2) && time_counter4 > 50)
       {
