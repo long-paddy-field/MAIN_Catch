@@ -5,7 +5,7 @@
 
 #include <mbed.h>
 
-Controller::Controller(CAN& _can, const uint32_t _canId) : can(_can), canId(_canId) {
+Controller::Controller(RawCAN& _can, const uint32_t _canId) : can(_can), canId(_canId) {
   can.attach(callback(this, &Controller::recieveData));
 }
 
@@ -20,13 +20,14 @@ void Controller::recieveData() {
   }
 }
 
+UnbufferedSerial pc(USBTX,USBRX);
 void Controller::parse(const uint8_t* data, const size_t length) {
   axes.x = ((int8_t) data[0] > 5 || (int8_t) data[0] < -5) ? (int8_t) data[0] : 0;
   axes.y = ((int8_t) data[1] > 5 || (int8_t) data[1] < -5) ? (int8_t) data[1] : 0;
   axes.z = ((int8_t) data[2] > 5 || (int8_t) data[2] < -5) ? (int8_t) data[2] : 0;
   axes.rz = ((int8_t) data[3] > 5 || (int8_t) data[3] < -5) ? (int8_t) data[3] : 0;
   data_size = data[4];
-  for(int i = 0; i < 8; i++)
+  for(int i = 0; i < 64; i++)
   {
     buttons[i] = false;
   }
@@ -34,6 +35,8 @@ void Controller::parse(const uint8_t* data, const size_t length) {
   for (size_t i = 0; i < data[4]; i++) {
     const bool next = data[5 + i / 8] & 0x80 >> i % 8;
     if (buttons[i] != next && buttonCallback) {
+      char str[] = "call";
+      pc.write(str, strlen(str));
       buttonCallback(i, next);
     }
     buttons[i] = next;

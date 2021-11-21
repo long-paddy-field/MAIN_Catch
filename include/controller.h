@@ -9,10 +9,10 @@
 
 class Controller {
   public:
-    Controller(CAN&, const uint32_t);
+    Controller(RawCAN&, const uint32_t);
     struct {int8_t x; int8_t y; int8_t z; int8_t rz;} axes = {};
     //std::vector<bool> buttons;
-    bool buttons[8];
+    bool buttons[64];
     void setButtonEventListener(Callback<void(size_t, bool)>);
   private:
     CAN& can;
